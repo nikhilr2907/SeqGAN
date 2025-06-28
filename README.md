@@ -3,4 +3,3 @@ This project aims to create a model to generate synthetic bond yield data, using
 We work on moving away from discrete tokens and using policy gradients for continuous actions.
 
 
-# This code is only compatible with TensorFlow 1 (Graph Execution was easier for this problem)
