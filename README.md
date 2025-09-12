@@ -1,5 +1,15 @@
-This project aims to create a model to generate synthetic bond yield data, using a SEQGAN and Monte Carlo Rollouts to train the model.
-# Still working on improving the performance of the model and its distribution hence the trained version of the model will be uploaded in due course.
-We work on moving away from discrete tokens and using policy gradients for continuous actions.
+# Synthetic Bond Yield Data Generation
+
+## Project Overview
+This project aims to create a model that generates **synthetic bond yield data**.  
+The approach combines **SEQGAN** with **Monte Carlo Rollouts** for training.
+
+## Current Progress
+- Working on improving model performance and the generated data distribution.  
+- Model weights (post-training) will be uploaded in due course.
+
+## Future Directions
+- Transitioning away from **discrete tokens**.  
+- Exploring **policy gradients** for continuous action spaces.
 
 
