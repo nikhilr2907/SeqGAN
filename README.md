@@ -137,9 +137,6 @@ The training script saves:
 - NumPy 1.24+
 - Pandas 2.0+
 
-## License
-
-MIT License
 
 ## References
 
