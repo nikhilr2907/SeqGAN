@@ -23,14 +23,14 @@ class DisDataLoader:
             for line in fin:
                 line = line.strip()
                 line = line.split()
-                parse_line = [int(x) for x in line]
+                parse_line = [float(x) for x in line]
                 positive_examples.append(parse_line)
 
         with open(negative_file) as fin:
             for line in fin:
                 line = line.strip()
                 line = line.split()
-                parse_line = [int(x) for x in line]
+                parse_line = [float(x) for x in line]
                 if len(parse_line) == 20:
                     negative_examples.append(parse_line)
 

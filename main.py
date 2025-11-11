@@ -1,8 +1,3 @@
-"""
-SeqGAN: Sequence Generative Adversarial Networks
-Main training script for SeqGAN implementation.
-"""
-
 import os
 import random
 import argparse
@@ -118,29 +113,30 @@ def main(args):
     criterion = nn.MSELoss()  # For generator pretraining
     dis_criterion = nn.CrossEntropyLoss()  # For discriminator
 
-    # Pretrain generator
-    if not args.skip_gen_pretrain:
-        pretrain_generator(
-            generator, gen_data_loader, likelihood_data_loader,
-            gen_optimizer, criterion, config, device
-        )
-        # Save generator checkpoint
-        torch.save(generator.state_dict(), config.GEN_CHECKPOINT)
-        print(f"\nGenerator checkpoint saved to {config.GEN_CHECKPOINT}")
-    else:
-        print("\nSkipping generator pretraining")
+    # # Pretrain generator
+    # if not args.skip_gen_pretrain:
+    #     pretrain_generator(
+    #         generator, gen_data_loader, likelihood_data_loader,
+    #         gen_optimizer, criterion, config, device
+    #     )
+    #     # Save generator checkpoint
+    #     torch.save(generator.state_dict(), config.GEN_CHECKPOINT)
+    #     print(f"\nGenerator checkpoint saved to {config.GEN_CHECKPOINT}")
+    # else:
+    #     print("\nSkipping generator pretraining")
+    print("\nSkipping generator pretraining - going straight to adversarial training")
 
-    # Pretrain discriminator
-    if not args.skip_dis_pretrain:
-        pretrain_discriminator(
-            generator, discriminator, dis_data_loader,
-            dis_optimizer, dis_criterion, config, device
-        )
-        # Save discriminator checkpoint
-        torch.save(discriminator.state_dict(), config.DIS_CHECKPOINT)
-        print(f"\nDiscriminator checkpoint saved to {config.DIS_CHECKPOINT}")
-    else:
-        print("\nSkipping discriminator pretraining")
+    # # Pretrain discriminator
+    # if not args.skip_dis_pretrain:
+    #     pretrain_discriminator(
+    #         generator, discriminator, dis_data_loader,
+    #         dis_optimizer, dis_criterion, config, device
+    #     )
+    #     # Save discriminator checkpoint
+    #     torch.save(discriminator.state_dict(), config.DIS_CHECKPOINT)
+    #     print(f"\nDiscriminator checkpoint saved to {config.DIS_CHECKPOINT}")
+    # else:
+    #     print("\nSkipping discriminator pretraining")
 
     # Initialize rollout policy
     rollout = Rollout(generator, config.ROLLOUT_UPDATE_RATE)

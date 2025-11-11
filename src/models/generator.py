@@ -33,8 +33,9 @@ class Generator(nn.Module):
         # LSTM cell for recurrent processing
         self.lstm_cell = nn.LSTMCell(1, hidden_dim)
 
-        # Output projection layer
-        self.output_linear = nn.Linear(hidden_dim, 1)
+        # Output projection layers for Gaussian distribution
+        self.mean_linear = nn.Linear(hidden_dim, 1)
+        self.logvar_linear = nn.Linear(hidden_dim, 1)
 
     def forward(self, x: torch.Tensor):
         """
@@ -42,7 +43,9 @@ class Generator(nn.Module):
         Args:
             x: [batch, seq_len, 1] tensor of numerical values
         Returns:
-            outputs: [batch, seq_len, 1]
+            outputs: [batch, seq_len, 1] - sampled values
+            means: [batch, seq_len, 1] - predicted means
+            logvars: [batch, seq_len, 1] - predicted log variances
         """
         batch_size = x.size(0)
         device = x.device
@@ -52,22 +55,45 @@ class Generator(nn.Module):
         c = torch.zeros(batch_size, self.hidden_dim, device=device)
 
         outputs_time = []
+        means_time = []
+        logvars_time = []
+
         for t in range(self.seq_len):
             h, c = self.lstm_cell(x[:, t, :], (h, c))
-            output = self.output_linear(h).unsqueeze(1)  # [B, 1, 1]
-            outputs_time.append(output)
+
+            # Get mean and log variance for Gaussian distribution
+            mean = self.mean_linear(h)  # [B, 1]
+            logvar = self.logvar_linear(h)  # [B, 1]
+
+            # Clamp logvar for numerical stability
+            logvar = torch.clamp(logvar, min=-10, max=2)
+
+            # Reparameterization trick: sample = mean + std * epsilon
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            sample = mean + std * eps
+
+            outputs_time.append(sample.unsqueeze(1))  # [B, 1, 1]
+            means_time.append(mean.unsqueeze(1))
+            logvars_time.append(logvar.unsqueeze(1))
 
         # Concatenate along time dimension [B, T, 1]
         outputs = torch.cat(outputs_time, dim=1)
-        return outputs
+        means = torch.cat(means_time, dim=1)
+        logvars = torch.cat(logvars_time, dim=1)
 
-    def generate(self, batch_size: int):
+        return outputs, means, logvars
+
+    def generate(self, batch_size: int, requires_grad: bool = False):
         """
-        Generate sequences without teacher forcing.
+        Generate sequences without teacher forcing using Gaussian sampling.
         Args:
             batch_size: number of sequences to generate
+            requires_grad: if True, maintain gradients for policy gradient training
         Returns:
             samples: [batch_size, seq_len, 1] tensor of generated values
+            means: [batch_size, seq_len, 1] tensor of predicted means (if requires_grad)
+            logvars: [batch_size, seq_len, 1] tensor of predicted log variances (if requires_grad)
         """
         device = next(self.parameters()).device
         h = torch.zeros(batch_size, self.hidden_dim, device=device)
@@ -76,27 +102,89 @@ class Generator(nn.Module):
         # Start with the start value
         inp = torch.full((batch_size, 1), self.start_value, dtype=torch.float, device=device)
         samples = []
+        means = []
+        logvars = []
 
-        with torch.no_grad():
+        if requires_grad:
+            # Generate with gradients for policy gradient training
             for _ in range(self.seq_len):
                 h, c = self.lstm_cell(inp, (h, c))
-                output = self.output_linear(h) / self.temperature
-                inp = output
-                samples.append(output.unsqueeze(1))
 
-        # [B, T, 1]
-        return torch.cat(samples, dim=1)
+                # Get mean and log variance
+                mean = self.mean_linear(h)
+                logvar = self.logvar_linear(h)
+                logvar = torch.clamp(logvar, min=-10, max=2)
 
-    def pretrain_loss(self, outputs: torch.Tensor, target: torch.Tensor):
+                # Reparameterization trick with temperature
+                std = torch.exp(0.5 * logvar) * self.temperature
+                eps = torch.randn_like(std)
+                sample = mean + std * eps
+
+                inp = sample
+                samples.append(sample.unsqueeze(1))
+                means.append(mean.unsqueeze(1))
+                logvars.append(logvar.unsqueeze(1))
+
+            return (torch.cat(samples, dim=1),
+                    torch.cat(means, dim=1),
+                    torch.cat(logvars, dim=1))
+        else:
+            # Generate without gradients for sampling/evaluation
+            with torch.no_grad():
+                for _ in range(self.seq_len):
+                    h, c = self.lstm_cell(inp, (h, c))
+
+                    # Get mean and log variance
+                    mean = self.mean_linear(h)
+                    logvar = self.logvar_linear(h)
+                    logvar = torch.clamp(logvar, min=-10, max=2)
+
+                    # Sample with temperature
+                    std = torch.exp(0.5 * logvar) * self.temperature
+                    eps = torch.randn_like(std)
+                    sample = mean + std * eps
+
+                    inp = sample
+                    samples.append(sample.unsqueeze(1))
+
+            # [B, T, 1]
+            return torch.cat(samples, dim=1)
+
+    def gaussian_log_prob(self, x: torch.Tensor, mean: torch.Tensor, logvar: torch.Tensor):
         """
-        MSE loss for numerical values.
+        Compute log probability of x under Gaussian distribution N(mean, exp(logvar)).
         Args:
-            outputs: [B, T, 1]
-            target: [B, T, 1]
+            x: [B, T, 1] sampled values
+            mean: [B, T, 1] predicted means
+            logvar: [B, T, 1] predicted log variances
+        Returns:
+            log_prob: [B, T, 1] log probabilities
+        """
+        var = torch.exp(logvar)
+        log_prob = -0.5 * (torch.log(2 * torch.pi * var) + ((x - mean) ** 2) / var)
+        return log_prob
+
+    def pretrain_loss(self, outputs: torch.Tensor, target: torch.Tensor, means: torch.Tensor = None, logvars: torch.Tensor = None):
+        """
+        Loss for pretraining - combination of MSE and negative log likelihood.
+        Args:
+            outputs: [B, T, 1] sampled values
+            target: [B, T, 1] target values
+            means: [B, T, 1] predicted means
+            logvars: [B, T, 1] predicted log variances
         Returns:
             loss: scalar loss value
         """
-        return F.mse_loss(outputs, target, reduction='mean')
+        # MSE loss on samples
+        mse_loss = F.mse_loss(outputs, target, reduction='mean')
+
+        # If means and logvars provided, add negative log likelihood
+        if means is not None and logvars is not None:
+            log_prob = self.gaussian_log_prob(target, means, logvars)
+            nll_loss = -log_prob.mean()
+            return mse_loss + 0.1 * nll_loss  # Weighted combination
+        else:
+            return mse_loss
 
     def pretrain_step(self, optimizer, outputs: torch.Tensor, target: torch.Tensor):
         """

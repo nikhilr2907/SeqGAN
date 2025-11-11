@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
+from tqdm import tqdm
 
 def generate_samples(model, batch_size, generated_num, output_file, device):
     """
@@ -52,8 +52,9 @@ def target_loss(model, data_loader, criterion, device):
             # Ensure batch has correct shape [B, T, 1]
             if batch.dim() == 2:
                 batch = batch.unsqueeze(-1)
-            output = model(batch)
-            loss = criterion(output, batch)
+            # Generator now returns (samples, means, logvars)
+            outputs, means, logvars = model(batch)
+            loss = model.pretrain_loss(outputs, batch, means, logvars)
             losses.append(loss.item())
 
     return np.mean(losses) if losses else 0.0
@@ -81,9 +82,12 @@ def pre_train_epoch(model, data_loader, optimizer, criterion, device):
             batch = batch.unsqueeze(-1)
 
         optimizer.zero_grad()
-        output = model(batch)
-        loss = criterion(output, batch)
+        # Generator now returns (samples, means, logvars)
+        outputs, means, logvars = model(batch)
+        # Use the pretrain_loss which handles Gaussian NLL
+        loss = model.pretrain_loss(outputs, batch, means, logvars)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), model.grad_clip)
         optimizer.step()
         supervised_losses.append(loss.item())
 
@@ -171,7 +175,7 @@ def adversarial_training(generator, discriminator, rollout, gen_data_loader,
                         dis_data_loader, gen_optimizer, dis_optimizer,
                         criterion, config, device):
     """
-    Perform adversarial training.
+    Perform adversarial training with proper policy gradients.
     Args:
         generator: Generator model
         discriminator: Discriminator model
@@ -180,7 +184,7 @@ def adversarial_training(generator, discriminator, rollout, gen_data_loader,
         dis_data_loader: discriminator data loader
         gen_optimizer: generator optimizer
         dis_optimizer: discriminator optimizer
-        criterion: loss function
+        criterion: loss function for discriminator
         config: configuration object
         device: torch device
     """
@@ -188,39 +192,60 @@ def adversarial_training(generator, discriminator, rollout, gen_data_loader,
     print("Adversarial Training")
     print("="*50)
 
-    for total_batch in range(config.TOTAL_BATCH):
+    for total_batch in tqdm(range(config.TOTAL_BATCH), desc='Adversarial Batches'):
         # Train generator with policy gradient
+        gen_losses = []
         for _ in range(config.GEN_ADV_UPDATES):
-            samples = generator.generate(config.BATCH_SIZE).to(device)
-            rewards = rollout.get_reward(samples, config.ROLLOUT_NUM, discriminator)
-            rewards_tensor = torch.FloatTensor(rewards).to(device)
-
-            # Policy gradient update
             generator.train()
             gen_optimizer.zero_grad()
 
-            # Recompute outputs for gradient calculation
-            # Use teacher forcing with generated samples
-            outputs = generator(samples)
+            # Generate samples WITH gradients for policy gradient
+            # Returns: samples [B, T, 1], means [B, T, 1], logvars [B, T, 1]
+            samples, means, logvars = generator.generate(config.BATCH_SIZE, requires_grad=True)
 
-            # Calculate policy gradient loss
-            # Loss = -mean(rewards * log_probs)
-            # For simplicity, use negative mean reward
-            loss = -torch.mean(rewards_tensor)
+            # Get rewards from rollout (detach samples for evaluation)
+            with torch.no_grad():
+                samples_detached = samples.detach()
+                rewards = rollout.get_reward(samples_detached, config.ROLLOUT_NUM, discriminator)
+            rewards_tensor = torch.FloatTensor(rewards).to(device)  # [B, T]
+
+            # Compute log probabilities of the sampled actions
+            # log_prob: [B, T, 1]
+            log_probs = generator.gaussian_log_prob(samples, means, logvars)
+
+            # Compute baseline-adjusted advantages
+            baseline = rewards_tensor.mean()
+            advantages = rewards_tensor - baseline  # [B, T]
+
+            # Ensure shapes match for broadcasting
+            # advantages: [B, T] -> [B, T, 1]
+            advantages = advantages.unsqueeze(-1)
+
+            # Policy gradient loss: -E[log_prob * advantage]
+            # This is the REINFORCE algorithm for continuous actions
+            pg_loss = -(log_probs * advantages).mean()
+
+            # Optional: Add entropy bonus to encourage exploration
+            entropy = 0.5 * (1.0 + torch.log(2 * torch.pi * torch.exp(logvars))).mean()
+            entropy_coeff = 0.01
+            loss = pg_loss - entropy_coeff * entropy
+
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(generator.parameters(), generator.grad_clip)
             gen_optimizer.step()
+            gen_losses.append(loss.item())
 
         # Update rollout policy
         rollout.update_params()
 
         # Train discriminator
+        dis_losses = []
         for _ in range(config.DIS_ADV_EPOCHS):
             generate_samples(generator, config.BATCH_SIZE, config.GENERATED_NUM,
                            config.NEGATIVE_FILE, device)
             dis_data_loader.load_train_data(config.POSITIVE_FILE, config.NEGATIVE_FILE)
 
             for _ in range(config.DIS_ADV_UPDATE_STEPS):
-                dis_losses = []
                 for x_batch, y_batch in dis_data_loader:
                     x_batch = x_batch.to(device)
                     y_batch = y_batch.to(device)
@@ -237,6 +262,6 @@ def adversarial_training(generator, discriminator, rollout, gen_data_loader,
                     dis_losses.append(loss.item())
 
         if total_batch % 10 == 0 or total_batch == config.TOTAL_BATCH - 1:
-            print(f"Batch {total_batch:3d} | Dis Loss: {np.mean(dis_losses):.4f}")
+            print(f"Batch {total_batch:3d} | Gen Loss: {np.mean(gen_losses):.4f} | Dis Loss: {np.mean(dis_losses):.4f} | Avg Reward: {rewards_tensor.mean().item():.4f}")
 
     print("\nAdversarial training completed!")

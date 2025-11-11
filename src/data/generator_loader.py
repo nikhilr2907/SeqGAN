@@ -19,7 +19,7 @@ class GenDataLoader:
             for line in f:
                 line = line.strip()
                 line = line.split()
-                parse_line = [int(x) for x in line]
+                parse_line = [float(x) for x in line]
                 if len(parse_line) == 20:
                     self.token_stream.append(parse_line)
 
