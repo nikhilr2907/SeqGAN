@@ -1,6 +1,6 @@
 # SeqGAN: Sequence Generative Adversarial Networks
 
-A PyTorch implementation of SeqGAN for sequence generation using adversarial training. This project generates synthetic bond yield data (or other time series) using SeqGAN with Monte Carlo Rollouts and policy gradients for continuous actions.
+A PyTorch implementation of SeqGAN for sequence generation using adversarial training. This project generates synthetic continuous sequences using SeqGAN with Gaussian policy gradients, Monte Carlo rollouts, and comprehensive distribution analysis tools.
 
 ## Project Structure
 
@@ -8,21 +8,21 @@ A PyTorch implementation of SeqGAN for sequence generation using adversarial tra
 SeqGAN-1/
 ├── src/
 │   ├── data/
-│   │   ├── __init__.py
 │   │   ├── generator_loader.py      # Data loader for generator
 │   │   └── discriminator_loader.py  # Data loader for discriminator
 │   ├── models/
-│   │   ├── __init__.py
-│   │   ├── generator.py             # LSTM-based generator
+│   │   ├── generator.py             # LSTM-based Gaussian generator
 │   │   ├── discriminator.py         # CNN-based discriminator
 │   │   └── rollout.py               # Rollout policy for MCTS
 │   ├── utils/
-│   │   ├── __init__.py
-│   │   └── training_utils.py        # Training utilities
+│   │   ├── training_utils.py        # Training utilities
+│   │   ├── distribution_metrics.py  # Distribution analysis metrics
+│   │   └── visualize_distributions.py  # Visualization tools
 │   └── config.py                    # Configuration and hyperparameters
+├── tests/                           # Test suite
 ├── save/                            # Directory for saved models and data
 ├── main.py                          # Main training script
-├── requirements.txt                 # Python dependencies
+├── analyze_distributions.py         # Distribution analysis tool
 └── README.md                        # This file
 ```
 
@@ -42,12 +42,12 @@ pip install -r requirements.txt
 
 ### Prepare Training Data
 
-Create a training data file at `save/real_data.txt` with one sequence per line. Each sequence should contain space-separated integers (e.g., token IDs). Default sequence length is 20.
+Create a training data file at `save/real_data.txt` with one sequence per line. Each sequence should contain space-separated numerical values. Default sequence length is 20.
 
 Example:
 ```
-1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
-5 3 8 2 9 1 4 7 6 10 15 12 18 13 19 14 20 16 17 11
+0.12 0.45 -0.67 0.89 1.23 -0.34 0.56 0.78 -0.12 0.34 ...
+0.23 -0.56 0.78 0.12 -0.89 0.45 0.67 -0.23 0.91 0.34 ...
 ...
 ```
 
@@ -57,6 +57,22 @@ Train the complete SeqGAN model:
 ```bash
 python main.py
 ```
+
+### Analyze Generated Distributions
+
+After training, analyze the quality of generated sequences:
+```bash
+python analyze_distributions.py \
+    --real save/real_data.txt \
+    --generated save/final_samples.txt
+```
+
+This generates:
+- **Metrics report** (`analysis_results/analysis_metrics.txt`): KS statistic, Wasserstein distance, JS divergence, and more
+- **Distribution plots** (`analysis_results/analysis_distributions.png`): Histograms, KDE, Q-Q plots, CDFs
+- **Temporal analysis** (`analysis_results/analysis_temporal.png`): Sequence patterns, autocorrelation, trends
+
+For detailed interpretation of metrics and plots, see [DISTRIBUTION_ANALYSIS.md](DISTRIBUTION_ANALYSIS.md).
 
 ### Command-line Options
 
@@ -97,10 +113,10 @@ Edit `src/config.py` to modify hyperparameters:
 ## Model Architecture
 
 ### Generator
-- LSTM-based recurrent neural network
-- Generates sequences token-by-token
-- Uses teacher forcing during pretraining
-- Free-running generation during adversarial training
+- LSTM-based recurrent neural network with Gaussian output
+- Outputs mean and log-variance for each timestep
+- Uses reparameterization trick for gradient flow
+- Proper policy gradients with REINFORCE algorithm
 
 ### Discriminator
 - CNN-based architecture with highway networks
@@ -112,6 +128,7 @@ Edit `src/config.py` to modify hyperparameters:
 - Monte Carlo Tree Search for reward estimation
 - Tracks generator with exponential moving average
 - Provides intermediate rewards for policy gradient
+- Automatic device consistency with generator
 
 ## Training Process
 
@@ -130,12 +147,30 @@ The training script saves:
 - `save/generator_sample.txt`: Intermediate generated samples
 - `save/eval_file.txt`: Evaluation samples
 
+## Testing
+
+Run tests to verify the implementation:
+```bash
+# Test gradient flow
+python tests/test_gradient_flow.py
+
+# Test device consistency
+python tests/test_gpu_usage.py
+
+# Run all tests
+for test in tests/test_*.py; do python "$test"; done
+```
+
+See `tests/README.md` for detailed test documentation.
+
 ## Requirements
 
 - Python 3.7+
 - PyTorch 2.0+
 - NumPy 1.24+
-- Pandas 2.0+
+- Matplotlib 3.0+ (for visualization)
+- Seaborn 0.11+ (for visualization)
+- SciPy 1.7+ (for distribution metrics)
 
 
 ## References

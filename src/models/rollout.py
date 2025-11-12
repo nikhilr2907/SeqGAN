@@ -21,8 +21,13 @@ class Rollout(nn.Module):
         # Create LSTM cell matching generator's architecture
         self.lstm_cell = nn.LSTMCell(1, self.hidden_dim)
 
-        # Create output layer matching generator's architecture
-        self.output_linear = nn.Linear(self.hidden_dim, 1)
+        # Create output layers matching generator's Gaussian architecture
+        self.mean_linear = nn.Linear(self.hidden_dim, 1)
+        self.logvar_linear = nn.Linear(self.hidden_dim, 1)
+
+        # Move to the same device as generator
+        device = next(generator.parameters()).device
+        self.to(device)
 
         # Initialize with generator's weights
         self.update_params()
@@ -53,7 +58,16 @@ class Rollout(nn.Module):
 
         for t in range(given_len, self.seq_len):
             h, c = self.lstm_cell(current.squeeze(1), (h, c))
-            next_value = self.output_linear(h).unsqueeze(1)  # [B, 1, 1]
+
+            # Sample from Gaussian distribution (matching generator)
+            mean = self.mean_linear(h)
+            logvar = self.logvar_linear(h)
+            logvar = torch.clamp(logvar, min=-10, max=2)
+
+            # Use mean for rollout (deterministic for stability)
+            # Or sample: std = torch.exp(0.5 * logvar); next_value = mean + std * torch.randn_like(std)
+            next_value = mean.unsqueeze(1)  # [B, 1, 1]
+
             samples.append(next_value)
             current = next_value
 
@@ -102,6 +116,10 @@ class Rollout(nn.Module):
     def update_params(self):
         """Update rollout network weights based on generator using exponential moving average."""
         with torch.no_grad():
+            # Ensure rollout is on same device as generator
+            device = next(self.generator.parameters()).device
+            self.to(device)
+
             # Update LSTM cell parameters
             for rollout_param, gen_param in zip(self.lstm_cell.parameters(),
                                                 self.generator.lstm_cell.parameters()):
@@ -110,9 +128,17 @@ class Rollout(nn.Module):
                     (1 - self.update_rate) * gen_param.data
                 )
 
-            # Update output layer parameters
-            for rollout_param, gen_param in zip(self.output_linear.parameters(),
-                                                self.generator.output_linear.parameters()):
+            # Update mean linear layer parameters
+            for rollout_param, gen_param in zip(self.mean_linear.parameters(),
+                                                self.generator.mean_linear.parameters()):
+                rollout_param.data.copy_(
+                    self.update_rate * rollout_param.data +
+                    (1 - self.update_rate) * gen_param.data
+                )
+
+            # Update logvar linear layer parameters
+            for rollout_param, gen_param in zip(self.logvar_linear.parameters(),
+                                                self.generator.logvar_linear.parameters()):
                 rollout_param.data.copy_(
                     self.update_rate * rollout_param.data +
                     (1 - self.update_rate) * gen_param.data
