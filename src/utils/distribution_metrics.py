@@ -8,7 +8,6 @@ the quality of generated sequences compared to real training data.
 import numpy as np
 import torch
 from scipy import stats
-from typing import Tuple, Dict, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -38,7 +37,7 @@ class DistributionAnalyzer:
                     sequences.append([float(x) for x in line])
         return np.array(sequences)
 
-    def compute_basic_statistics(self, sequences: np.ndarray) -> Dict[str, float]:
+    def compute_basic_statistics(self, sequences: np.ndarray) -> dict[str, float]:
         """
         Compute basic statistics for sequences.
 
@@ -66,7 +65,7 @@ class DistributionAnalyzer:
         self,
         real_sequences: np.ndarray,
         generated_sequences: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Compute various distance metrics between distributions.
 
@@ -127,7 +126,7 @@ class DistributionAnalyzer:
 
         return metrics
 
-    def compute_temporal_statistics(self, sequences: np.ndarray) -> Dict[str, float]:
+    def compute_temporal_statistics(self, sequences: np.ndarray) -> dict[str, float]:
         """
         Compute temporal statistics (time-series properties).
 
@@ -163,7 +162,7 @@ class DistributionAnalyzer:
             'std_trend': float(np.std(trends)) if trends else 0.0
         }
 
-    def compute_sequence_diversity(self, sequences: np.ndarray) -> Dict[str, float]:
+    def compute_sequence_diversity(self, sequences: np.ndarray) -> dict[str, float]:
         """
         Compute diversity metrics for generated sequences.
 
@@ -195,7 +194,7 @@ class DistributionAnalyzer:
         self,
         real_file: str,
         generated_file: str
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """
         Comprehensive analysis of real vs generated distributions.
 
@@ -228,7 +227,7 @@ class DistributionAnalyzer:
 
         return results
 
-    def print_analysis(self, results: Dict[str, Dict[str, float]]):
+    def print_analysis(self, results: dict[str, dict[str, float]]):
         """
         Pretty print analysis results.
 

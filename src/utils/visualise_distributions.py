@@ -1,17 +1,10 @@
-"""
-Visualization tools for comparing real and generated distributions.
 
-This module provides comprehensive plotting functions for analyzing
-the quality of generated sequences.
-"""
 
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-from typing import Optional, Tuple
 import os
-
 # Set style for better-looking plots
 sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
