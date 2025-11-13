@@ -28,7 +28,8 @@ def generate_samples(model, batch_size, generated_num, output_file, device):
             # Flatten sequence if needed and convert to string
             if sequence.ndim > 1:
                 sequence = sequence.flatten()
-            buffer = ' '.join([str(int(x)) for x in sequence]) + '\n'
+            # Keep floating point precision - use .2f format to match real data
+            buffer = '\t'.join([f'{x:.2f}' for x in sequence]) + '\n'
             fout.write(buffer)
 
 

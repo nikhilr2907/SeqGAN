@@ -9,7 +9,7 @@ class Config:
     # Generator hyperparameters
     HIDDEN_DIM = 32  # Hidden state dimension of LSTM cell
     SEQ_LENGTH = 20  # Sequence length
-    START_TOKEN = 0  # Start token for generation
+    START_TOKEN = 3.0  # Start token for generation (should match mean of data ~2.7-3.0)
     PRE_EPOCH_NUM = 120  # Pretraining epochs for generator
     TEMPERATURE = 1.0  # Temperature for sampling
     GRAD_CLIP = 5.0  # Gradient clipping threshold

@@ -44,12 +44,23 @@ pip install -r requirements.txt
 
 Create a training data file at `save/real_data.txt` with one sequence per line. Each sequence should contain space-separated numerical values. Default sequence length is 20.
 
+**File format requirements:**
+- One sequence per line
+- Space-separated floating-point numbers
+- All sequences must have the same length (default: 20)
+- No headers or metadata
+
 Example:
 ```
 0.12 0.45 -0.67 0.89 1.23 -0.34 0.56 0.78 -0.12 0.34 ...
 0.23 -0.56 0.78 0.12 -0.89 0.45 0.67 -0.23 0.91 0.34 ...
 ...
 ```
+
+**Data locations:**
+- Training data: `save/real_data.txt` (you must create this)
+- Generated samples: `save/final_samples.txt` (created after training)
+- Analysis output: `./analysis_results/` (created when you run analysis)
 
 ### Run Training
 
@@ -62,17 +73,30 @@ python main.py
 
 After training, analyze the quality of generated sequences:
 ```bash
-python analyze_distributions.py \
+python analyse_distributions.py \
     --real save/real_data.txt \
     --generated save/final_samples.txt
 ```
 
-This generates:
-- **Metrics report** (`analysis_results/analysis_metrics.txt`): KS statistic, Wasserstein distance, JS divergence, and more
-- **Distribution plots** (`analysis_results/analysis_distributions.png`): Histograms, KDE, Q-Q plots, CDFs
-- **Temporal analysis** (`analysis_results/analysis_temporal.png`): Sequence patterns, autocorrelation, trends
+**Output files (saved to `./analysis_results/`):**
+- `analysis_metrics.txt` - Comprehensive metrics report
+- `analysis_distributions.png` - 6 distribution comparison plots
+- `analysis_temporal.png` - 4 temporal analysis plots
+
+**What each file shows:**
+- **Metrics**: KS statistic, Wasserstein distance, JS divergence, autocorrelation, diversity
+- **Distributions**: Histograms, KDE, Q-Q plots, box plots, CDF, statistics comparison
+- **Temporal**: Sample sequences, mean trends, autocorrelation, distribution evolution
 
 For detailed interpretation of metrics and plots, see [DISTRIBUTION_ANALYSIS.md](DISTRIBUTION_ANALYSIS.md).
+
+**Custom output directory:**
+```bash
+python analyse_distributions.py \
+    --real save/real_data.txt \
+    --generated save/final_samples.txt \
+    --output-dir ./my_analysis
+```
 
 ### Command-line Options
 
