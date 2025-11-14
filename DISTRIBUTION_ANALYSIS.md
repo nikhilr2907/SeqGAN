@@ -1,19 +1,19 @@
 # Distribution Analysis Guide
 
-This guide explains how to analyze and visualize the quality of generated sequences using comprehensive distribution metrics and plots.
+This guide explains how to analyse and visualize the quality of generated sequences using comprehensive distribution metrics and plots.
 
 ## Quick Start
 
 ```bash
 # Basic analysis
-python analyze_distributions.py \
-    --real data/real_data.txt \
-    --generated save/generated_samples.txt
+python analyse_distributions.py \
+    --real save/real_data.txt \
+    --generated save/final_samples.txt
 
 # With custom output directory
-python analyze_distributions.py \
-    --real data/real_data.txt \
-    --generated save/generated_samples.txt \
+python analyse_distributions.py \
+    --real save/real_data.txt \
+    --generated save/final_samples.txt \
     --output-dir ./my_analysis
 ```
 
@@ -33,7 +33,7 @@ The distribution analysis tool provides:
 
 1. **Statistical Metrics**: Compare basic statistics (mean, std, etc.)
 2. **Distribution Distances**: Quantify similarity between distributions
-3. **Temporal Properties**: Analyze time-series characteristics
+3. **Temporal Properties**: analyse time-series characteristics
 4. **Diversity Metrics**: Measure generation variety
 5. **Comprehensive Visualisations**: 10+ plots for deep analysis
 
@@ -359,9 +359,9 @@ Indicators:
 ### Comparing Multiple Checkpoints
 
 ```bash
-# Analyze different training checkpoints
+# analyse different training checkpoints
 for epoch in 100 200 300 400 500; do
-    python analyze_distributions.py \
+    python analyse_distributions.py \
         --real data/real_data.txt \
         --generated save/generated_epoch_${epoch}.txt \
         --output-dir analysis/epoch_${epoch} \
@@ -377,7 +377,7 @@ Then compare metrics across epochs to track training progress.
 
 ```bash
 # Skip Visualisation for quick metrics
-python analyze_distributions.py \
+python analyse_distributions.py \
     --real data/real_data.txt \
     --generated save/generated_samples.txt \
     --no-plots
@@ -393,13 +393,13 @@ Useful for:
 ### Programmatic Usage
 
 ```python
-from src.utils.distribution_metrics import DistributionAnalyzer
+from src.utils.distribution_metrics import Distributionanalyser
 from src.utils.visualize_distributions import DistributionVisualizer
 
-# Analyze metrics
-analyzer = DistributionAnalyzer()
-results = analyzer.analyze('real.txt', 'generated.txt')
-analyzer.print_analysis(results)
+# analyse metrics
+analyser = Distributionanalyser()
+results = analyser.analyse('real.txt', 'generated.txt')
+analyser.print_analysis(results)
 
 # Get specific metrics
 ks_stat = results['distance_metrics']['ks_statistic']
@@ -415,24 +415,24 @@ visualizer.create_full_report('real.txt', 'generated.txt')
 ### Tracking Training Progress
 
 ```python
-# During training, periodically analyze
-from src.utils.distribution_metrics import DistributionAnalyzer
+# During training, periodically analyse
+from src.utils.distribution_metrics import Distributionanalyser
 
-analyzer = DistributionAnalyzer()
+analyser = Distributionanalyser()
 
 for epoch in range(num_epochs):
     # ... training code ...
 
     if epoch % 10 == 0:
-        results = analyzer.analyze('real.txt', f'generated_epoch_{epoch}.txt')
+        results = analyser.analyse('real.txt', f'generated_epoch_{epoch}.txt')
 
         # Track key metric
         ks_stat = results['distance_metrics']['ks_statistic']
         print(f"Epoch {epoch}: KS = {ks_stat:.4f}")
 
 # Plot metric evolution
-analyzer.visualizer.plot_training_metrics(
-    analyzer.metrics_history,
+analyser.visualizer.plot_training_metrics(
+    analyser.metrics_history,
     save_name='training_progress.png'
 )
 ```
@@ -448,7 +448,7 @@ analyzer.visualizer.plot_training_metrics(
 **Solution:**
 ```bash
 # Use absolute paths
-python analyze_distributions.py \
+python analyse_distributions.py \
     --real /full/path/to/real_data.txt \
     --generated /full/path/to/generated.txt
 ```

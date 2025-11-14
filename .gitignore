@@ -44,6 +44,7 @@ ENV/
 save/*.txt
 save/*.csv
 !save/.gitkeep
+my_analysis
 
 # OS
 .DS_Store

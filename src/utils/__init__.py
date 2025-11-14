@@ -7,7 +7,7 @@ from .training_utils import (
     adversarial_training
 )
 
-# Only import visualization tools if available (they have extra dependencies)
+
 try:
     from .distribution_metrics import DistributionAnalyzer
     from .visualise_distributions import DistributionVisualizer

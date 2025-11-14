@@ -14,7 +14,7 @@ import argparse
 import os
 import sys
 from src.utils.distribution_metrics import DistributionAnalyzer
-from utils.visualise_distributions import DistributionVisualizer
+from src.utils.visualise_distributions import DistributionVisualizer
 
 
 def main():
